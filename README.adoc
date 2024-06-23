@@ -1,0 +1,114 @@
+= camel-errorhandler
+
+This project shows the difference between defining an error handler on a `RouteBuilder` directly vs. using an explicit `ErrorHandler`.
+
+== Error handler defined on the route
+The implementation can be found on branch `main`.
+
+When the error handler is defined directly on the route:
+
+.Error handler defined directly on the route
+[source, java]
+----
+@Override
+public void configure() {
+  // @formatter:off
+  onException(Exception.class)
+      .maximumRedeliveries(3)
+      .log("Exception caught ${exchangeProperty.%s}".formatted(Exchange.EXCEPTION_CAUGHT))
+      .onRedelivery(exchange -> log.info(
+          "Redelivery {} / {}",
+          exchange.getIn().getHeader(Exchange.REDELIVERY_COUNTER),
+          exchange.getIn().getHeader(Exchange.REDELIVERY_MAX_COUNTER)));
+
+  from(direct(DIRECT_ROUTE))
+      .id(DIRECT_ROUTE)
+      .log("Hello from direct route");
+  // @formatter:on
+}
+----
+
+the redelivery is executed first, and then the exception handler is executed:
+
+.log of a run with the error handler defined on a route directly
+[source, bash]
+----
+./mvnw clean test
+...
+[                          main] direct-route                   INFO  Hello from direct route
+[                          main] MyDirectRoute                  INFO  Redelivery 1 / 3
+[                          main] MyDirectRoute                  INFO  Redelivery 2 / 3
+[                          main] MyDirectRoute                  INFO  Redelivery 3 / 3
+[                          main] direct-route                   INFO  Exception caught java.lang.Exception: Test exception behaviour
+...
+----
+
+== Explicit error handler
+The implementation can be found on branch `error-handler`.
+
+When the error handler is defined explicitly:
+
+.Error handler defined explicitly
+[source, java]
+----
+@Override
+public void configure() {
+  // @formatter:off
+  errorHandler(new DefaultErrorHandlerBuilder()
+      .maximumRedeliveries(3)
+      .onExceptionOccurred(exchange -> log.info(
+          "Exception caught {}",
+          exchange.getProperty(Exchange.EXCEPTION_CAUGHT)))
+      .onRedelivery(exchange -> log.info(
+          "Redelivery {} / {}",
+          exchange.getIn().getHeader(Exchange.REDELIVERY_COUNTER),
+          exchange.getIn().getHeader(Exchange.REDELIVERY_MAX_COUNTER))));
+
+  from(direct(DIRECT_ROUTE))
+      .id(DIRECT_ROUTE)
+      .log("Hello from direct route");
+  // @formatter:on
+}
+----
+
+the exception handler is executed first, and then the redelivery is executed:
+
+.log of a run with the error handler defined explicitly
+[source, bash]
+----
+./mvnw clean test
+...
+[                          main] direct-route                   INFO  Hello from direct route
+[                          main] MyDirectRoute                  INFO  Exception caught java.lang.Exception: Test exception behaviour
+[                          main] MyDirectRoute                  INFO  Redelivery 1 / 3
+[                          main] MyDirectRoute                  INFO  Exception caught java.lang.Exception: Test exception behaviour
+[                          main] MyDirectRoute                  INFO  Redelivery 2 / 3
+[                          main] MyDirectRoute                  INFO  Exception caught java.lang.Exception: Test exception behaviour
+[                          main] MyDirectRoute                  INFO  Redelivery 3 / 3
+[                          main] MyDirectRoute                  INFO  Exception caught java.lang.Exception: Test exception behaviour
+...
+----
+
+== Contributors ✨
+
+Thanks goes to these wonderful people (https://allcontributors.org/docs/en/emoji-key[emoji key]):
+
+++++
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://turing85.github.io"><img src="https://avatars.githubusercontent.com/u/32584495?v=4?s=100" width="100px;" alt="Marco Bungart"/><br /><sub><b>Marco Bungart</b></sub></a><br /><a href="#code-turing85" title="Code">💻</a> <a href="#maintenance-turing85" title="Maintenance">🚧</a> <a href="#doc-turing85" title="Documentation">📖</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+++++
+
+This project follows the https://github.com/all-contributors/all-contributors[all-contributors] specification. Contributions of any kind welcome!
